@@ -19,6 +19,7 @@
 #include <resolve/vector/VectorHandler.hpp>
 #include <resolve/LinSolverDirectCpuILU0.hpp>
 #include <resolve/LinSolverIterativeRandFGMRES.hpp>
+#include <resolve/LinSolverIterativeFGMRES.hpp>
 #include <resolve/GramSchmidt.hpp>
 #include <resolve/workspace/LinAlgWorkspace.hpp>
 
@@ -96,10 +97,15 @@ int runTest(int argc, char *argv[])
   preconditioner_type ILU(&workspace);
   LinSolverIterativeRandFGMRES::SketchingMethod sketching =
     LinSolverIterativeRandFGMRES::cs;
-  LinSolverIterativeRandFGMRES FGMRES(&matrix_handler,
+  LinSolverIterativeRandFGMRES randFGMRES(&matrix_handler,
                                                &vector_handler,
                                                sketching,
                                                &GS);
+
+  // NEW create unrandomized FGMRES
+  LinSolverIterativeFGMRES FGMRES(&matrix_handler,
+                                               &vector_handler,
+                                               &GS);                                             
 
   // Create test linear system (default size 10,000)
   const index_type n = (argc == 2) ? atoi(argv[1]) : 10000;
@@ -107,6 +113,7 @@ int runTest(int argc, char *argv[])
   vector_type* vec_rhs = generateRhs(n, memspace);
 
   vector_type vec_x(A->getNumRows());
+  vec_x.allocate(memory::HOST);
   vec_x.allocate(memspace);
   vec_x.setToZero(memspace);
 
@@ -120,21 +127,31 @@ int runTest(int argc, char *argv[])
   error_sum += status;
 
   // Set solver parameters
+  randFGMRES.setMaxit(2500);
+  randFGMRES.setTol(tol);
+  randFGMRES.setup(A);
+
+  // NEW For unrandomized
   FGMRES.setMaxit(2500);
   FGMRES.setTol(tol);
   FGMRES.setup(A);
 
   // Typically, you would want these settings _before_ matrix A setup, but here we test
   // flexibility of Re::Solve configuration options
+  randFGMRES.setRestart(200);
+  randFGMRES.setSketchingMethod(LinSolverIterativeRandFGMRES::cs);
+
+  // NEW for unrandomized
   FGMRES.setRestart(200);
-  FGMRES.setSketchingMethod(LinSolverIterativeRandFGMRES::cs);
+
+  status = randFGMRES.setupPreconditioner("LU", &ILU);
 
   status = FGMRES.setupPreconditioner("LU", &ILU);
   error_sum += status;
 
-  FGMRES.setFlexible(true); 
+  randFGMRES.setFlexible(true); 
 
-  status = FGMRES.solve(vec_rhs, &vec_x);
+  status = randFGMRES.solve(vec_rhs, &vec_x);
   error_sum += status;
 
   // Compute error norms for the system
@@ -146,18 +163,18 @@ int runTest(int argc, char *argv[])
             << hwbackend << "\n" 
             << "\t Sketching method:                              : "
             << "CountSketch\n";
-  helper.printIterativeSolverSummary(&FGMRES);
+  helper.printIterativeSolverSummary(&randFGMRES);
   error_sum += helper.checkResult(test_pass_tol);
 
   // Change sketching method for the existing randomized GMRES solver
-  FGMRES.setSketchingMethod(LinSolverIterativeRandFGMRES::fwht);
-  FGMRES.setRestart(150);
-  FGMRES.setMaxit(2500);
-  FGMRES.setTol(tol);
-  FGMRES.resetMatrix(A);
+  randFGMRES.setSketchingMethod(LinSolverIterativeRandFGMRES::fwht);
+  randFGMRES.setRestart(150);
+  randFGMRES.setMaxit(2500);
+  randFGMRES.setTol(tol);
+  randFGMRES.resetMatrix(A);
 
   vec_x.setToZero(memspace);
-  status = FGMRES.solve(vec_rhs, &vec_x);
+  status = randFGMRES.solve(vec_rhs, &vec_x);
   error_sum += status;
 
   // Print result summary and check solution
@@ -166,8 +183,32 @@ int runTest(int argc, char *argv[])
             << hwbackend << "\n" 
             << "\t Sketching method:                              : "
             << "FWHT\n";
+  helper.printIterativeSolverSummary(&randFGMRES);
+  error_sum += helper.checkResult(test_pass_tol);
+
+  /*
+  NEW
+  */
+
+  // Use standard FGMRES
+  FGMRES.setRestart(150);
+  FGMRES.setMaxit(2500);
+  FGMRES.setTol(tol);
+
+  vec_x.setToZero(memspace);
+  status = FGMRES.solve(vec_rhs, &vec_x);
+  error_sum += status;
+
+  // Print result summary and check solution
+  std::cout << "\nStandard FGMRES results: \n"
+            << "\t Hardware backend:                              : "
+            << hwbackend << "\n" 
+            << "\t Sketching method:                              : "
+            << "FWHT\n";
   helper.printIterativeSolverSummary(&FGMRES);
   error_sum += helper.checkResult(test_pass_tol);
+
+  
 
   isTestPass(error_sum, "Test Randomized GMRES on " + hwbackend + " device");
 
