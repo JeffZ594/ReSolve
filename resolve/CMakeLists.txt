@@ -16,6 +16,8 @@ set(ReSolve_SRC
     LinSolverIterative.cpp
     GramSchmidt.cpp
     LinSolverIterativeFGMRES.cpp
+    LinSolverIterativeABGMRES.cpp
+    LinSolverIterativeBAGMRES.cpp
     LinSolverDirectCpuILU0.cpp
     LinSolverIterativeRandFGMRES.cpp
     LinSolverDirectSerialILU0.cpp
@@ -51,6 +53,8 @@ set(ReSolve_HEADER_INSTALL
     LinSolverDirect.hpp
     LinSolverIterative.hpp
     LinSolverIterativeFGMRES.hpp
+    LinSolverIterativeABGMRES.hpp
+    LinSolverIterativeBAGMRES.hpp
     LinSolverDirectCpuILU0.hpp
     SystemSolver.hpp
     GramSchmidt.hpp

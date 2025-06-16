@@ -20,8 +20,13 @@
 #include <resolve/LinSolverDirectCpuILU0.hpp>
 #include <resolve/LinSolverIterativeRandFGMRES.hpp>
 #include <resolve/LinSolverIterativeFGMRES.hpp>
+
+#include <resolve/LinSolverIterativeABGMRES.hpp>
+#include <resolve/LinSolverIterativeBAGMRES.hpp>
+
 #include <resolve/GramSchmidt.hpp>
 #include <resolve/workspace/LinAlgWorkspace.hpp>
+
 
 #ifdef RESOLVE_USE_CUDA
 #include <resolve/LinSolverDirectCuSparseILU0.hpp>
@@ -105,17 +110,32 @@ int runTest(int argc, char *argv[])
   // NEW create unrandomized FGMRES
   LinSolverIterativeFGMRES FGMRES(&matrix_handler,
                                                &vector_handler,
+                                               &GS);               
+
+  // NEW create ABGMRES
+  LinSolverIterativeABGMRES ABGMRES(&matrix_handler,
+                                               &vector_handler,
                                                &GS);                                             
+
+  // NEW create BAGMRES
+  LinSolverIterativeABGMRES BAGMRES(&matrix_handler,
+                                               &vector_handler,
+                                               &GS);                
 
   // Create test linear system (default size 10,000)
   const index_type n = (argc == 2) ? atoi(argv[1]) : 10000;
   matrix::Csr* A = generateMatrix(n, memspace);
+  // NEW Declare A_t
+  matrix::Csr* A_t = generateMatrix(n, memspace);
   vector_type* vec_rhs = generateRhs(n, memspace);
 
   vector_type vec_x(A->getNumRows());
   vec_x.allocate(memory::HOST);
   vec_x.allocate(memspace);
   vec_x.setToZero(memspace);
+
+  // NEW obtain A_t for AB and BA GMRES
+  error_sum += matrix_handler.transpose(A, A_t, memspace);
 
   matrix_handler.setValuesChanged(true, memspace);
 
@@ -135,6 +155,18 @@ int runTest(int argc, char *argv[])
   FGMRES.setMaxit(2500);
   FGMRES.setTol(tol);
   FGMRES.setup(A);
+
+  // NEW for ABGMRES
+  // Set B as A^T
+  ABGMRES.setMaxit(2500);
+  ABGMRES.setTol(tol);
+  ABGMRES.setup(A, A_t);
+
+  // NEW for BAGMRES
+  // Set B as A^T
+  BAGMRES.setMaxit(2500);
+  BAGMRES.setTol(tol);
+  BAGMRES.setup(A, A_t);
 
   // Typically, you would want these settings _before_ matrix A setup, but here we test
   // flexibility of Re::Solve configuration options
@@ -208,11 +240,47 @@ int runTest(int argc, char *argv[])
   helper.printIterativeSolverSummary(&FGMRES);
   error_sum += helper.checkResult(test_pass_tol);
 
-  
+  // Use ABGMRES
+  ABGMRES.setRestart(150);
+  ABGMRES.setMaxit(2500);
+  ABGMRES.setTol(tol);
+
+  vec_x.setToZero(memspace);
+  status = ABGMRES.solve(vec_rhs, &vec_x);
+  error_sum += status;
+
+  // Print result summary and check solution
+  std::cout << "\nABGMRES results: \n"
+            << "\t Hardware backend:                              : "
+            << hwbackend << "\n" 
+            << "\t Sketching method:                              : "
+            << "FWHT\n";
+  helper.printIterativeSolverSummary(&ABGMRES);
+  error_sum += helper.checkResult(test_pass_tol);
+
+  // Use BAGMRES
+  BAGMRES.setRestart(150);
+  BAGMRES.setMaxit(2500);
+  BAGMRES.setTol(tol);
+
+  vec_x.setToZero(memspace);
+  status = BAGMRES.solve(vec_rhs, &vec_x);
+  error_sum += status;
+
+  // Print result summary and check solution
+  std::cout << "\nBAGMRES results: \n"
+            << "\t Hardware backend:                              : "
+            << hwbackend << "\n" 
+            << "\t Sketching method:                              : "
+            << "FWHT\n";
+  helper.printIterativeSolverSummary(&BAGMRES);
+  error_sum += helper.checkResult(test_pass_tol);
+
 
   isTestPass(error_sum, "Test Randomized GMRES on " + hwbackend + " device");
 
   delete A;
+  delete A_t;
   delete vec_rhs;
 
   return error_sum;
