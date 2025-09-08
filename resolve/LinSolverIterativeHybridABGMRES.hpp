@@ -1,7 +1,8 @@
 /**
- * @file LinSolverIterativeBAGMRES.hpp
+ * @file LinSolverIterativeHybridABGMRES.hpp
  * @author Kasia Swirydowicz (kasia.swirydowicz@pnnl.gov)
- * @brief Declaration of LinSolverIterativeBAGMRES class
+ * @author Jeffery Zhang (jefferyz@vt.edu)
+ * @brief Declaration of LinSolverIterativeHybridABGMRES class
  * 
  */
 #pragma once
@@ -12,42 +13,50 @@
 #include "GramSchmidt.hpp"
 #include <resolve/LinSolverDirect.hpp>
 #include <resolve/LinSolverIterative.hpp>
+#include <resolve/regularization/RegularizationSolver.hpp>
 
 namespace ReSolve 
 {
   /**
-   * @brief (BA)GMRES solver
+   * @brief Hybrid (AB)GMRES solver
    * 
    * @author Kasia Swirydowicz (kasia.swirydowicz@pnnl.gov)
+   * @author Jeffery Zhang (jefferyz@vt.edu)
    * 
    * @note MatrixHandler and VectorHandler objects are inherited from
    * LinSolver base class.
    */
-  class LinSolverIterativeBAGMRES : public LinSolverIterative
+  class LinSolverIterativeHybridABGMRES : public LinSolverIterative
   {
     using vector_type = vector::Vector;
 
     public:
-      LinSolverIterativeBAGMRES(MatrixHandler* matrix_handler,
+      LinSolverIterativeHybridABGMRES(MatrixHandler* matrix_handler,
                                VectorHandler* vector_handler,
                                GramSchmidt*   gs);
-      LinSolverIterativeBAGMRES(index_type restart,
+      LinSolverIterativeHybridABGMRES(MatrixHandler* matrix_handler,
+                               VectorHandler* vector_handler,
+                               GramSchmidt*   gs,
+                               RegularizationSolver* rs);
+      LinSolverIterativeHybridABGMRES(index_type restart,
                                real_type  tol,
                                index_type maxit,
                                index_type conv_cond,
                                MatrixHandler* matrix_handler,
                                VectorHandler* vector_handler,
                                GramSchmidt*   gs);
-      ~LinSolverIterativeBAGMRES();
+      ~LinSolverIterativeHybridABGMRES();
 
       int solve(vector_type* rhs, vector_type* x) override;
+      int solve(vector_type* rhs, vector_type* x, real_type delta);
+      int solveExport(vector_type* rhs, vector_type* x, vector_type* x_true);
+
       int setup(matrix::Sparse* A, matrix::Sparse* B);
       int resetMatrix(matrix::Sparse* new_A) override; 
       int setupPreconditioner(std::string name, LinSolverDirect* LU_solver) override;
       int setOrthogonalization(GramSchmidt* gs) override;
 
       int setRestart(index_type restart);
-      int setFlexible(bool is_flexible);
       int setConvergenceCondition(index_type conv_cond);
       index_type getRestart() const;
       index_type getConvCond() const;
@@ -64,14 +73,12 @@ namespace ReSolve
 
       index_type restart_{10};  ///< GMRES restart
       index_type conv_cond_{0}; ///< GMRES convergence condition
-      bool flexible_{true};     ///< If using flexible GMRES (FGMRES) algorithm
 
     private:
       int allocateSolverData();
       int freeSolverData();
       void setMemorySpace();
       void initParamList();
-      void precV(vector_type* rhs, vector_type* x); ///< Apply preconditioner
 
       memory::MemorySpace memspace_;
 
@@ -83,7 +90,10 @@ namespace ReSolve
       real_type* h_s_{nullptr};
       real_type* h_rs_{nullptr};
 
-      GramSchmidt* GS_{nullptr};     
+      GramSchmidt* GS_{nullptr};
+      
+      RegularizationSolver* RS_{nullptr};
+
       LinSolverDirect* LU_solver_{nullptr};
       index_type n_{0};
       bool is_solver_set_{false};

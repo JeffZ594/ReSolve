@@ -119,17 +119,21 @@ namespace ReSolve
     real_type tolrel;
     vector_type* vec_v = new vector_type(n_);
     vector_type* vec_z = new vector_type(n_);
-    vector_type* temp_vec = rhs;
+    vector_type* B_rhs = new vector_type(n_);
+    vector_type* temp_vec = new vector_type(n_);
     //V[0] = b-A*x_0
     //debug
+    B_rhs->setToZero(memspace_);
+    temp_vec->setToZero(memspace_);
     vec_Z_->setToZero(memspace_);
     vec_V_->setToZero(memspace_);
 
-    // NEW Calculate b = B * b
-    matrix_handler_->matvec(B_, temp_vec, rhs, &ONE, &ZERO, memspace_);
+    // NEW Calculate r_0 = ||Bb - BAx_0||
+    matrix_handler_->matvec(B_, rhs, B_rhs, &ONE, &ZERO, memspace_);
 
-    rhs->copyDataTo(vec_V_->getData(memspace_), 0, memspace_);
-    matrix_handler_->matvec(A_, x, vec_V_, &MINUS_ONE, &ONE, memspace_);
+    B_rhs->copyDataTo(vec_V_->getData(memspace_), 0, memspace_);
+    matrix_handler_->matvec(A_, x, temp_vec, &ONE, &ZERO, memspace_);
+    matrix_handler_->matvec(B_, temp_vec, vec_V_, &MINUS_ONE, &ONE, memspace_);
     rnorm = 0.0;
     bnorm = vector_handler_->dot(rhs, rhs, memspace_);
     rnorm = vector_handler_->dot(vec_V_, vec_V_, memspace_);
@@ -261,8 +265,6 @@ namespace ReSolve
 
       vec_v->setData( vec_V_->getData(memspace_), memspace_);
 
-      // matrix_handler_->matvec(B_, vec_z, vec_v, &ONE, &ZERO, memspace_);
-      //this->precV(vec_z, vec_v);
       // and add to x
       vector_handler_->axpy(&ONE, vec_v, x, memspace_);
       
@@ -361,30 +363,6 @@ namespace ReSolve
   }
 
   /**
-   * @brief Switches between flexible and standard GMRES
-   *
-   * @param is_flexible - true means set flexible GMRES
-   * @return 0 if successful, error code otherwise.
-   */
-  int LinSolverIterativeBAGMRES::setFlexible(bool is_flexible)
-  {
-    // TODO: Add vector method resize
-    if (vec_Z_) {
-      delete vec_Z_;
-      if (is_flexible) {
-        vec_Z_ = new vector_type(n_, restart_ + 1);
-      } else {
-        // otherwise Z is just a one vector, not multivector and we dont keep it
-        vec_Z_ = new vector_type(n_);
-      }
-      vec_Z_->allocate(memspace_);
-    }
-    flexible_ = is_flexible;
-    matrix_handler_->setValuesChanged(true, memspace_);
-    return 0;
-  }
-
-  /**
    * @brief Set the convergence condition for GMRES solver
    *
    * @param[in] conv_cond - Possible values: 0, 1, 2
@@ -406,12 +384,6 @@ namespace ReSolve
     return conv_cond_;
   }
 
-  bool  LinSolverIterativeBAGMRES::getFlexible() const
-  {
-    return flexible_;
-  }
-
-
   int LinSolverIterativeBAGMRES::setCliParam(const std::string id, const std::string value)
   {
     switch (getParamId(id))
@@ -428,9 +400,6 @@ namespace ReSolve
       case CONV_COND:
         setConvergenceCondition(atoi(value.c_str()));
         break;
-      case FLEXIBLE:
-        setFlexible(value == "yes");
-        break;
       default:
         std::cout << "Setting parameter failed!\n";
     }
@@ -439,11 +408,8 @@ namespace ReSolve
 
   std::string LinSolverIterativeBAGMRES::getCliParamString(const std::string id) const
   {
-    switch (getParamId(id))
-    {
-      default:
-        out::error() << "Trying to get unknown string parameter " << id << "\n";
-    }
+    out::error() << "Trying to get unknown string parameter " << id << "\n";
+    
     return "";
   }
 
@@ -481,14 +447,8 @@ namespace ReSolve
 
   bool LinSolverIterativeBAGMRES::getCliParamBool(const std::string id) const
   {
-    switch (getParamId(id))
-    {
-      case FLEXIBLE:
-        return getFlexible();
-        break;
-      default:
-        out::error() << "Trying to get unknown boolean parameter " << id << "\n";
-    }
+    out::error() << "Trying to get unknown boolean parameter " << id << "\n";
+    
     return false;
   }
 
@@ -508,9 +468,6 @@ namespace ReSolve
     case CONV_COND:
       std::cout << getConvCond() << "\n";
       break;
-    case FLEXIBLE:
-      std::cout << getFlexible() << "\n";
-      break;
     default:
       out::error() << "Trying to print unknown parameter " << id << "\n";
       return 1;
@@ -526,12 +483,8 @@ namespace ReSolve
   {
     vec_V_ = new vector_type(n_, restart_ + 1);
     vec_V_->allocate(memspace_);
-    if (flexible_) {
-      vec_Z_ = new vector_type(n_, restart_ + 1);
-    } else {
-      // otherwise Z is just a one vector, not multivector and we dont keep it
-      vec_Z_ = new vector_type(n_);
-    }
+    // otherwise Z is just a one vector, not multivector and we dont keep it
+    vec_Z_ = new vector_type(n_);
     vec_Z_->allocate(memspace_);
     h_H_  = new real_type[restart_ * (restart_ + 1)];
     h_c_  = new real_type[restart_];      // needed for givens
@@ -590,7 +543,6 @@ namespace ReSolve
     params_list_["maxit"]     = MAXIT;
     params_list_["restart"]   = RESTART;
     params_list_["conv_cond"] = CONV_COND;
-    params_list_["flexible"]  = FLEXIBLE;
   }
 
 } // namespace

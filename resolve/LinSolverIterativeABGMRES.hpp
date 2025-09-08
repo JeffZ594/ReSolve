@@ -1,6 +1,7 @@
 /**
  * @file LinSolverIterativeABGMRES.hpp
  * @author Kasia Swirydowicz (kasia.swirydowicz@pnnl.gov)
+ * @author Jeffery Zhang (jefferyz@vt.edu)
  * @brief Declaration of LinSolverIterativeABGMRES class
  * 
  */
@@ -12,6 +13,7 @@
 #include "GramSchmidt.hpp"
 #include <resolve/LinSolverDirect.hpp>
 #include <resolve/LinSolverIterative.hpp>
+#include <resolve/regularization/RegularizationSolver.hpp>
 
 namespace ReSolve 
 {
@@ -31,6 +33,10 @@ namespace ReSolve
       LinSolverIterativeABGMRES(MatrixHandler* matrix_handler,
                                VectorHandler* vector_handler,
                                GramSchmidt*   gs);
+      LinSolverIterativeABGMRES(MatrixHandler* matrix_handler,
+                               VectorHandler* vector_handler,
+                               GramSchmidt*   gs,
+                               RegularizationSolver* rs);
       LinSolverIterativeABGMRES(index_type restart,
                                real_type  tol,
                                index_type maxit,
@@ -41,17 +47,19 @@ namespace ReSolve
       ~LinSolverIterativeABGMRES();
 
       int solve(vector_type* rhs, vector_type* x) override;
+
+      //NEW
+      int regSolve(vector_type* rhs, vector_type* x);
+
       int setup(matrix::Sparse* A, matrix::Sparse* B);
       int resetMatrix(matrix::Sparse* new_A) override; 
       int setupPreconditioner(std::string name, LinSolverDirect* LU_solver) override;
       int setOrthogonalization(GramSchmidt* gs) override;
 
       int setRestart(index_type restart);
-      int setFlexible(bool is_flexible);
       int setConvergenceCondition(index_type conv_cond);
       index_type getRestart() const;
       index_type getConvCond() const;
-      bool getFlexible() const;
 
       int setCliParam(const std::string id, const std::string value) override;
       std::string getCliParamString(const std::string id) const override;
@@ -61,7 +69,7 @@ namespace ReSolve
       int printCliParam(const std::string id) const override;
 
     private:
-      enum ParamaterIDs {TOL=0, MAXIT, RESTART, CONV_COND, FLEXIBLE};
+      enum ParamaterIDs {TOL=0, MAXIT, RESTART, CONV_COND};
 
       index_type restart_{10};  ///< GMRES restart
       index_type conv_cond_{0}; ///< GMRES convergence condition
@@ -84,7 +92,10 @@ namespace ReSolve
       real_type* h_s_{nullptr};
       real_type* h_rs_{nullptr};
 
-      GramSchmidt* GS_{nullptr};     
+      GramSchmidt* GS_{nullptr};
+      
+      RegularizationSolver* RS_{nullptr};
+
       LinSolverDirect* LU_solver_{nullptr};
       index_type n_{0};
       bool is_solver_set_{false};
