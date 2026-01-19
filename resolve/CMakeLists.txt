@@ -20,6 +20,9 @@ set(ReSolve_SRC
     LinSolverIterativeRandFGMRES.cpp
     LinSolverDirectSerialILU0.cpp
     SystemSolver.cpp
+    LinSolverIterativeABGMRES.cpp
+    LinSolverIterativeBAGMRES.cpp
+    LinSolverIterativeHybridABGMRES.cpp
 )
 
 set(ReSolve_KLU_SRC LinSolverDirectKLU.cpp)
@@ -45,6 +48,9 @@ set(ReSolve_HEADER_INSTALL
     LinSolverDirect.hpp
     LinSolverIterative.hpp
     LinSolverIterativeFGMRES.hpp
+    LinSolverIterativeABGMRES.hpp
+    LinSolverIterativeBAGMRES.hpp
+    LinSolverIterativeHybridABGMRES.hpp
     LinSolverDirectCpuILU0.hpp
     SystemSolver.hpp
     GramSchmidt.hpp
@@ -72,6 +78,9 @@ add_subdirectory(vector)
 add_subdirectory(matrix)
 add_subdirectory(random)
 
+# Add regularization subdirectory
+add_subdirectory(regularization)
+
 # Build shared library ReSolve
 add_library(resolve_tpl INTERFACE)
 
@@ -84,6 +93,7 @@ endif()
 
 set(ReSolve_Targets_List resolve_matrix resolve_vector resolve_random
                          resolve_logger resolve_tpl resolve_workspace
+                         resolve_regularization
 )
 
 set(ReSolve_Object_List resolve_options resolve_version)

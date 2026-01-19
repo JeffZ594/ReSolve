@@ -17,6 +17,13 @@ target_link_libraries(rand_gmres_test.exe PRIVATE ReSolve)
 add_executable(sys_rand_gmres_test.exe testSysGmres.cpp)
 target_link_libraries(sys_rand_gmres_test.exe PRIVATE ReSolve)
 
+# Build Hybrid GMRES tests
+add_executable(trips_py_test.exe testTripsProblem.cpp)
+target_link_libraries(trips_py_test.exe PRIVATE ReSolve)
+
+add_executable(test_hybrid_gmres_export.exe testHybridGmresExport.cpp)
+target_link_libraries(test_hybrid_gmres_export.exe PRIVATE ReSolve)
+
 if(RESOLVE_USE_KLU)
   # Build KLU+KLU test
   add_executable(klu_klu_test.exe testKlu.cpp)
@@ -48,6 +55,10 @@ endif()
 set(installable_tests version.exe)
 list(APPEND installable_tests rand_gmres_test.exe)
 list(APPEND installable_tests sys_rand_gmres_test.exe)
+
+# Hybrid tests
+list(APPEND installable_tests trips_py_test.exe)
+list(APPEND installable_tests test_hybrid_gmres_export.exe)
 
 if(RESOLVE_USE_KLU)
   list(APPEND installable_tests klu_klu_test.exe)

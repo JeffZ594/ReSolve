@@ -192,3 +192,14 @@ set(RESOLVE_CTEST_OUTPUT_DIR
     CACHE PATH "Directory where CTest outputs are saved"
 )
 add_subdirectory(tests)
+
+# Eigen Dependency
+include(FetchContent)
+
+FetchContent_Declare(
+    eigen
+    GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+    GIT_TAG 3.4.1 # Requires version 3.4.1
+)
+
+FetchContent_MakeAvailable(eigen)
